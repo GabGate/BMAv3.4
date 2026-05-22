@@ -2638,27 +2638,58 @@ async function onFixtureSelect(){
 
     showFetchStatus('loading',`🔄 Fetching last 3 games for each team…`,[],[]);
 
-    // Fetch last games for each team (try with league first, then without)
+    // Fetch last games for each team — tries multiple season formats then date-range fallback
     async function getRecentGames(teamId){
       const lgId=fixture.league?.id;
       let games=[];
-      // try league-filtered first
-      try{
-        const d=await apiReq(`/games?team=${teamId}&season=${season}&league=${lgId}`);
-        games=(d.response||[]);
-      }catch(e){}
-      if(games.length<3){
+
+      // api-sports uses integer year for season start: "2025" means the 2025-26 season.
+      // Build a priority list of season values to try so we hit the right one.
+      const rawSeason=fixture.league?.season;          // e.g. "2025-2026", "2025", 2025
+      const rawStr=String(rawSeason||'');
+      const yearNum=parseInt(rawStr);                  // 2025
+      const prevYear=yearNum-1;                        // 2024
+      // Candidates: integer forms first (most likely for api-sports), then string forms
+      const seasonCandidates=[
+        yearNum,                                       // 2025
+        prevYear,                                      // 2024  (for teams whose season ended)
+        `${yearNum}-${yearNum+1}`,                     // 2025-2026
+        `${prevYear}-${yearNum}`,                      // 2024-2025
+      ].filter((v,i,a)=>v&&a.indexOf(v)===i);         // deduplicate
+
+      const merge=(arr,extra)=>{
+        const seen=new Set(arr.map(g=>g.id));
+        extra.forEach(g=>{ if(!seen.has(g.id)){seen.add(g.id);arr.push(g);} });
+      };
+      const finished=arr=>arr.filter(g=>['FT','AOT','AET'].includes(g.status?.short));
+
+      // Try each season candidate; stop as soon as we have ≥3 finished games
+      for(const s of seasonCandidates){
+        if(finished(games).length>=3) break;
         try{
-          const d=await apiReq(`/games?team=${teamId}&season=${season}`);
-          const extra=(d.response||[]);
-          // merge, deduplicate by id
-          const seen=new Set(games.map(g=>g.id));
-          extra.forEach(g=>{ if(!seen.has(g.id)){seen.add(g.id);games.push(g);} });
+          // league-filtered first (cheaper on quota when it works)
+          const d=await apiReq(`/games?team=${teamId}&season=${s}&league=${lgId}`);
+          merge(games, d.response||[]);
+        }catch(e){}
+        if(finished(games).length>=3) break;
+        try{
+          // no league filter — catches multi-competition teams
+          const d=await apiReq(`/games?team=${teamId}&season=${s}`);
+          merge(games, d.response||[]);
         }catch(e){}
       }
-      // filter finished, sort newest first
-      return games
-        .filter(g=>['FT','AOT','AET'].includes(g.status?.short))
+
+      // Last resort: date-range query for past 120 days (doesn't need season knowledge)
+      if(finished(games).length<1){
+        try{
+          const to=new Date().toISOString().split('T')[0];
+          const from=new Date(Date.now()-120*864e5).toISOString().split('T')[0];
+          const d=await apiReq(`/games?team=${teamId}&date-from=${from}&date-to=${to}`);
+          merge(games, d.response||[]);
+        }catch(e){}
+      }
+
+      return finished(games)
         .sort((a,b)=>new Date(b.date)-new Date(a.date))
         .slice(0,3);
     }
@@ -2684,10 +2715,10 @@ async function onFixtureSelect(){
       state.gamesB[i].os=ih?(g.scores?.away?.total||0):(g.scores?.home?.total||0);
       bSc++;
     });
-    if(aSc>0) filled.push(`${nameA}: ${aSc} game scores`);
-    else warnings.push(`${nameA} recent games not found for this season`);
-    if(bSc>0) filled.push(`${nameB}: ${bSc} game scores`);
-    else warnings.push(`${nameB} recent games not found for this season`);
+    if(aSc>0) filled.push(`${nameA}: ${aSc} recent game scores`);
+    else warnings.push(`${nameA} recent games not found — API may lack data for this league/team. Fill manually.`);
+    if(bSc>0) filled.push(`${nameB}: ${bSc} recent game scores`);
+    else warnings.push(`${nameB} recent games not found — API may lack data for this league/team. Fill manually.`);
 
     // Fetch box score stats for each game
     showFetchStatus('loading','🔄 Fetching box score stats (FGA, 3PA, FG%, Assists)…',[],[]);
