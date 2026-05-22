@@ -750,7 +750,7 @@ body {
     <div class="card-header" style="background:linear-gradient(135deg,#0891B2,#0369A1)">
       <span>🏀</span>
       <span class="card-header-title" style="color:#A5F3FC">Get Upcoming Fixtures</span>
-      <span id="apiDot" style="margin-left:auto;font-size:10px;font-weight:700;color:var(--mg)">⚙️ Add key</span>
+      <span id="apiDot" onclick="navigateTo('settings')" style="margin-left:auto;font-size:10px;font-weight:700;color:var(--mg);cursor:pointer;padding:3px 7px;border-radius:5px;transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'">⚙️ Add key</span>
     </div>
     <div class="card-body">
       <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -758,6 +758,11 @@ body {
           style="flex:1;background:linear-gradient(135deg,#0891B2,#0369A1);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;padding:12px">
           <span id="fetchBtnSpinner" style="display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:middle"></span>
           ⚡ GET ALL FIXTURES (48h)
+        </button>
+        <button class="btn" onclick="navigateTo('settings')"
+          title="Go to Settings"
+          style="flex-shrink:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:var(--wh);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;padding:12px 14px;white-space:nowrap">
+          ⚙️ Settings
         </button>
       </div>
       <div id="fixtureDropdownWrap" style="display:none;margin-bottom:8px">
